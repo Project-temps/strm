@@ -74,6 +74,16 @@ def public_content():
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file, parse_dates=["Date"], index_col=[0])
 
+        # Ensure the input features match those used during training
+        input_columns = [
+            "CH4_w-out", "CH4_s-out", "CH4_n-out", "CH4_e-out", "CH4_n-in",
+            "CH4_m-in", "CH4_m-in-up", "CH4_s-in", "CH4_w-in", "CH4_e-in",
+            "TEMP", "Ver_w", "Hor_w", "CH4_in_mean", "CH4_out_mean",
+            "CO2_n-in", "CO2_m-in", "CO2_m-in-up", "CO2_s-in",
+            "CO2_w-in", "CO2_e-in"
+        ]
+        df = df[input_columns]
+
         test_split = round(len(df) * 0.20)
 
         # Create training and testing datasets
@@ -81,7 +91,7 @@ def public_content():
         df_for_testing = df[-test_split:]
 
         # Initialize MinMaxScaler and scale the training and testing datasets
-        df_for_training_scaled = scaler.fit_transform(df_for_training)
+        df_for_training_scaled = scaler.transform(df_for_training)
         df_for_testing_scaled = scaler.transform(df_for_testing)
 
         # Define a function to create input features (dataX) and target variable (dataY) for time series prediction
@@ -92,8 +102,8 @@ def public_content():
                 dataY.append(dataset[i, :])
             return np.array(dataX), np.array(dataY)
 
-        # Set the number of past and future time steps
-        n_past = 48  # Adjust as needed
+        # Set the number of past and future time steps to match the training configuration
+        n_past = 168
         n_future = 1  # Predict future days
 
         # Apply the createXY function to generate training data
