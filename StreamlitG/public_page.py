@@ -114,8 +114,21 @@ def public_content():
         predictions = model.predict(inputX)
         num_sequences = predictions.shape[0]
         predictions = target_scaler.inverse_transform(predictions.reshape(-1, 1))
-        predictions = predictions.reshape(num_sequences, n_future)
-        predictions_df = pd.DataFrame(predictions.reshape(-1, 1), columns=["CH4_in_mean"])
+        predictions_flat = predictions.reshape(-1)
+
+        # Compute actual CH4 values aligned with predictions
+        actual_ch4, dates = [], []
+        target = df_for_testing["CH4_in_mean"].values
+        for i in range(len(target) - n_past - n_future + 1):
+            for j in range(n_future):
+                actual_ch4.append(target[i + n_past + j])
+                dates.append(df_for_testing.index[i + n_past + j])
+
+        predictions_df = pd.DataFrame({
+            "Date": dates,
+            "Actual_CH4_in_mean": actual_ch4,
+            "Predicted_CH4_in_mean": predictions_flat,
+        })
 
         st.write("### Predicted Results:")
         st.dataframe(predictions_df)
@@ -131,9 +144,8 @@ def public_content():
         # Display prediction plot for CH4_in_mean
         st.write("### Predictions:")
         plt.figure(figsize=(10, 5))
-        actual_ch4 = df_for_testing["CH4_in_mean"].values[-len(predictions_df):]
-        plt.plot(df_for_testing.index[-len(predictions_df):], actual_ch4, label='Actual CH4_in_mean', color='red')
-        plt.plot(df_for_testing.index[-len(predictions_df):], predictions_df["CH4_in_mean"], label='Predicted CH4_in_mean', color='blue')
+        plt.plot(predictions_df["Date"], predictions_df["Actual_CH4_in_mean"], label='Actual CH4_in_mean', color='red')
+        plt.plot(predictions_df["Date"], predictions_df["Predicted_CH4_in_mean"], label='Predicted CH4_in_mean', color='blue')
         plt.title('Actual vs Predicted CH4_in_mean')
         plt.xlabel('Date')
         plt.ylabel('CH4_in_mean')
