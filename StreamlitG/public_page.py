@@ -96,30 +96,29 @@ def public_content():
 
         # Define a function to create input features (dataX) and target variable (dataY) for time series prediction
         def createXY(dataset, n_past, n_future):
-            dataX, dataY = [], []
-            for i in range(n_past, len(dataset) - n_future + 1):
-                dataX.append(dataset[i - n_past:i, :])
-                dataY.append(dataset[i, :])
-            return np.array(dataX), np.array(dataY)
+            dataX = []
+            for i in range(len(dataset) - n_past - n_future + 1):
+                dataX.append(dataset[i:(i + n_past), :])
+            return np.array(dataX)
 
         # Set the number of past and future time steps to match the training configuration
         n_past = 168
-        n_future = 1  # Predict future days
+        n_future = 12  # Predict future hours
 
-        # Apply the createXY function to generate training data
-        trainX, trainY = createXY(df_for_training_scaled, n_past, n_future)
-
-        # Apply the createXY function to generate testing data
-        testX, testY = createXY(df_for_testing_scaled, n_past, n_future)
+        # Generate testing data
+        testX = createXY(df_for_testing_scaled, n_past, n_future)
 
         inputX = testX
 
         # Generate predictions
         predictions = model.predict(inputX)
-        predictions = scaler.inverse_transform(predictions.reshape(-1, df_for_training.shape[1]))
+        num_sequences = predictions.shape[0]
+        predictions = target_scaler.inverse_transform(predictions.reshape(-1, 1))
+        predictions = predictions.reshape(num_sequences, n_future)
+        predictions_df = pd.DataFrame(predictions.reshape(-1, 1), columns=["CH4_in_mean"])
 
         st.write("### Predicted Results:")
-        st.dataframe(pd.DataFrame(predictions, columns=df.columns))
+        st.dataframe(predictions_df)
 
         # Allow the user to choose which columns to display for input data visualization
         st.write("### Input Data Visualization for manual adjustment:")
@@ -129,19 +128,17 @@ def public_content():
         fig_input = px.line(df_for_testing, x=df_for_testing.index, y=selected_input_columns, title="Input Data Visualization")
         st.plotly_chart(fig_input, use_container_width=True)
 
-        # Allow the user to choose columns to display for predicted results
+        # Display prediction plot for CH4_in_mean
         st.write("### Predictions:")
-        selected_columns = st.multiselect("Select columns to display", df.columns)
-
-        for column in selected_columns:
-            plt.figure(figsize=(10, 5))
-            plt.plot(df.index[-len(predictions):], df_for_testing[column].values[-len(predictions):], label=f'Actual {column}', color='red')
-            plt.plot(df.index[-len(predictions):], predictions[:, df.columns.get_loc(column)], label=f'Predicted {column}', color='blue')
-            plt.title(f'Actual vs Predicted {column}')
-            plt.xlabel('Date')
-            plt.ylabel(column)
-            plt.legend()
-            st.pyplot(plt)
+        plt.figure(figsize=(10, 5))
+        actual_ch4 = df_for_testing["CH4_in_mean"].values[-len(predictions_df):]
+        plt.plot(df_for_testing.index[-len(predictions_df):], actual_ch4, label='Actual CH4_in_mean', color='red')
+        plt.plot(df_for_testing.index[-len(predictions_df):], predictions_df["CH4_in_mean"], label='Predicted CH4_in_mean', color='blue')
+        plt.title('Actual vs Predicted CH4_in_mean')
+        plt.xlabel('Date')
+        plt.ylabel('CH4_in_mean')
+        plt.legend()
+        st.pyplot(plt)
 
 
 def public_page():
